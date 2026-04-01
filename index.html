@@ -41,19 +41,20 @@ canvas{display:block;width:100%;height:100%;image-rendering:auto}
 </div>
 
 <script>
-// ── Assets (embedded base64) ──
-const CHAR_SRC = "
-const BG_SRC   = "
-const SND_SRC  = "
+// ── Assets (local files) ──
+const CHAR_SRC = "images/Doodler_transparent.png";
+const BG_SRC   = ""; // pas de fichier background fourni
+const SND_JUMP  = "son/jump.wav";
 
-const MONSTER_SRC = "
-const MONSTER_SND_SRC = "
-const DEATH_SND_SRC = "
+const MONSTER_SRC = "images/Monster4.png";
+const SND_MONSTER = "son/soundmonsters.mp3";
+const SND_DEATH = "son/death.mp3";
 
-const SHOOT_SPRITE_SRC = "
-const SHOOT_SND2 = "
-const TRAP_SND_SRC = "
-const PADA_SND_SRC = "
+const SHOOT_SPRITE_SRC = "images/shoot.png";
+const SND_SHOOT1 = "son/shoot1.mp3";
+const SND_SHOOT2 = "son/shoot2.mp3";
+const SND_TRAP = "son/trap.mp3";
+const SND_PADA = "son/death.mp3"; // pada = son de chute (death.mp3)
 
 
 
@@ -89,26 +90,23 @@ let jumpBuffer = null, monsterBuffer = null, monsterSource = null, monsterGain =
 let shootBuffer1 = null, shootBuffer2 = null;
 let trapBuffer = null, padaBuffer = null;
 
-function b64ToArrayBuffer(dataURI) {
-  const b64 = dataURI.split(',')[1];
-  const bin = atob(b64);
-  const buf = new ArrayBuffer(bin.length);
-  const view = new Uint8Array(buf);
-  for(let i = 0; i < bin.length; i++) view[i] = bin.charCodeAt(i);
-  return buf;
+async function loadAudioFile(url) {
+  const response = await fetch(url);
+  const arrayBuffer = await response.arrayBuffer();
+  return audioCtx.decodeAudioData(arrayBuffer);
 }
 
 async function initAudio() {
   if (audioCtx) return;
   audioCtx = new (window.AudioContext || window.webkitAudioContext)();
   try {
-    jumpBuffer = await audioCtx.decodeAudioData(b64ToArrayBuffer(SND_SRC));
-    monsterBuffer = await audioCtx.decodeAudioData(b64ToArrayBuffer(MONSTER_SND_SRC));
-    deathBuffer = await audioCtx.decodeAudioData(b64ToArrayBuffer(DEATH_SND_SRC));
-    shootBuffer1 = await audioCtx.decodeAudioData(b64ToArrayBuffer(SHOOT_SND1));
-    shootBuffer2 = await audioCtx.decodeAudioData(b64ToArrayBuffer(SHOOT_SND2));
-    trapBuffer = await audioCtx.decodeAudioData(b64ToArrayBuffer(TRAP_SND_SRC));
-    padaBuffer = await audioCtx.decodeAudioData(b64ToArrayBuffer(PADA_SND_SRC));
+    jumpBuffer = await loadAudioFile(SND_JUMP);
+    monsterBuffer = await loadAudioFile(SND_MONSTER);
+    deathBuffer = await loadAudioFile(SND_DEATH);
+    shootBuffer1 = await loadAudioFile(SND_SHOOT1);
+    shootBuffer2 = await loadAudioFile(SND_SHOOT2);
+    trapBuffer = await loadAudioFile(SND_TRAP);
+    padaBuffer = await loadAudioFile(SND_PADA);
   } catch(e) { console.warn('Audio load failed', e); }
 }
 
