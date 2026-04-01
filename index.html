@@ -43,7 +43,7 @@ canvas{display:block;width:100%;height:100%;image-rendering:auto}
 <script>
 // ── Assets (local files) ──
 const CHAR_SRC = "images/Doodler_transparent.png";
-const BG_SRC   = ""; // pas de fichier background fourni
+const BG_SRC   = "images/Background.jpg"; // pas de fichier background fourni
 const SND_JUMP  = "son/jump.wav";
 
 const MONSTER_SRC = "images/Monster4.png";
@@ -60,7 +60,7 @@ const SND_PADA = "son/death.mp3"; // pada = son de chute (death.mp3)
 
 // ── Setup ──
 const canvas = document.getElementById('c');
-const ctx = canvas.getContext('2d', { alpha: false });
+const ctx = canvas.getContext('2d');
 const hud = document.getElementById('hud');
 const startScreen = document.getElementById('startScreen');
 const endScreen = document.getElementById('endScreen');
@@ -84,101 +84,65 @@ shootImg.src = SHOOT_SPRITE_SRC;
 const bgImg = new Image();
 bgImg.src = BG_SRC;
 
-// Audio context for jump sound (low latency)
-let audioCtx = null;
-let jumpBuffer = null, monsterBuffer = null, monsterSource = null, monsterGain = null, deathBuffer = null;
-let shootBuffer1 = null, shootBuffer2 = null;
-let trapBuffer = null, padaBuffer = null;
+// Audio system using HTML5 Audio (compatible file:// et https://)
+let audioReady = false;
+let monsterAudio = null;
 
-async function loadAudioFile(url) {
-  const response = await fetch(url);
-  const arrayBuffer = await response.arrayBuffer();
-  return audioCtx.decodeAudioData(arrayBuffer);
+function makeSound(src, volume, loop) {
+  const a = new Audio(src);
+  a.volume = volume;
+  a.loop = !!loop;
+  return a;
 }
 
-async function initAudio() {
-  if (audioCtx) return;
-  audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+function playSound(src, volume) {
+  if (!audioReady) return;
   try {
-    jumpBuffer = await loadAudioFile(SND_JUMP);
-    monsterBuffer = await loadAudioFile(SND_MONSTER);
-    deathBuffer = await loadAudioFile(SND_DEATH);
-    shootBuffer1 = await loadAudioFile(SND_SHOOT1);
-    shootBuffer2 = await loadAudioFile(SND_SHOOT2);
-    trapBuffer = await loadAudioFile(SND_TRAP);
-    padaBuffer = await loadAudioFile(SND_PADA);
-  } catch(e) { console.warn('Audio load failed', e); }
+    const a = new Audio(src);
+    a.volume = volume;
+    a.play();
+  } catch(e) {}
+}
+
+function initAudio() {
+  audioReady = true;
 }
 
 function playJump() {
-  if (!audioCtx || !jumpBuffer) return;
-  const src = audioCtx.createBufferSource();
-  src.buffer = jumpBuffer;
-  const gain = audioCtx.createGain();
-  gain.gain.value = 0.35;
-  src.connect(gain).connect(audioCtx.destination);
-  src.start(0);
+  playSound(SND_JUMP, 0.35);
 }
 
 function playMonsterSound() {
-  if (!audioCtx || !monsterBuffer || monsterSource) return;
-  monsterSource = audioCtx.createBufferSource();
-  monsterSource.buffer = monsterBuffer;
-  monsterSource.loop = true;
-  monsterGain = audioCtx.createGain();
-  monsterGain.gain.value = 0.4;
-  monsterSource.connect(monsterGain).connect(audioCtx.destination);
-  monsterSource.start();
+  if (!audioReady || monsterAudio) return;
+  try {
+    monsterAudio = new Audio(SND_MONSTER);
+    monsterAudio.volume = 0.4;
+    monsterAudio.loop = true;
+    monsterAudio.play();
+  } catch(e) {}
 }
 
 function stopMonsterSound() {
-  if (monsterSource) {
-    try { monsterSource.stop(); } catch(e) {}
-    monsterSource = null;
-    monsterGain = null;
+  if (monsterAudio) {
+    try { monsterAudio.pause(); monsterAudio.currentTime = 0; } catch(e) {}
+    monsterAudio = null;
   }
 }
 
 function playShootSound() {
-  if (!audioCtx) return;
-  const buf = Math.random() < 0.5 ? shootBuffer1 : shootBuffer2;
-  if (!buf) return;
-  const src = audioCtx.createBufferSource();
-  src.buffer = buf;
-  const gain = audioCtx.createGain();
-  gain.gain.value = 0.3;
-  src.connect(gain).connect(audioCtx.destination);
-  src.start(0);
+  playSound(Math.random() < 0.5 ? SND_SHOOT1 : SND_SHOOT2, 0.3);
 }
 
 function playDeathSound() {
-  if (!audioCtx || !deathBuffer) return;
-  const src = audioCtx.createBufferSource();
-  src.buffer = deathBuffer;
-  const gain = audioCtx.createGain();
-  gain.gain.value = 0.5;
-  src.connect(gain).connect(audioCtx.destination);
-  src.start(0);
+  playSound(SND_DEATH, 0.5);
 }
 
 function playTrapSound() {
-  if (!audioCtx || !trapBuffer) return;
-  const src = audioCtx.createBufferSource();
-  src.buffer = trapBuffer;
-  const gain = audioCtx.createGain();
-  gain.gain.value = 0.6;
-  src.connect(gain).connect(audioCtx.destination);
-  src.start(0);
+  playSound(SND_TRAP, 0.6);
 }
 
 function playPadaSound() {
-  if (!audioCtx || !padaBuffer) return;
-  const src = audioCtx.createBufferSource();
-  src.buffer = padaBuffer;
-  const gain = audioCtx.createGain();
-  gain.gain.value = 0.7;
-  src.connect(gain).connect(audioCtx.destination);
-  src.start(0);
+  playSound(SND_PADA, 0.7);
 }
 
 
@@ -193,7 +157,7 @@ const PLAT_COUNT = 14;
 const PLAT_W_MIN = 58, PLAT_W_MAX = 95;
 const PLAT_H = 14;
 const GAP_MIN = 38, GAP_MAX = 85;
-const PLAYER_W = 52, PLAYER_H = 52;
+const PLAYER_W = 66, PLAYER_H = 66;
 const MONSTER_W = 70, MONSTER_H = 40;
 const MONSTER_INTERVAL = 500;
 
@@ -670,8 +634,16 @@ function render() {
     const cy2 = player.y + player.h / 2;
     ctx.translate(cx, cy2);
     ctx.scale(player.facing * (2 - player.squash), player.squash);
-    const pImg = (shooting && shootImg.complete && shootImg.naturalWidth) ? shootImg : playerImg;
-    ctx.drawImage(pImg, -player.w/2, -player.h/2, player.w, player.h);
+    const isShoot = shooting && shootImg.complete && shootImg.naturalWidth;
+    if(isShoot) {
+      // Garder la même hauteur que le Doodler normal, ajuster la largeur selon le ratio du sprite de tir
+      const ratio = shootImg.naturalWidth / shootImg.naturalHeight;
+      const drawH = player.h;
+      const drawW = drawH * ratio;
+      ctx.drawImage(shootImg, -drawW/2, -drawH/2, drawW, drawH);
+    } else {
+      ctx.drawImage(playerImg, -player.w/2, -player.h/2, player.w, player.h);
+    }
     ctx.restore();
   } else {
     // Fallback
